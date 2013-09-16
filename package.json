@@ -33,6 +33,6 @@
   },
   "preferGlobal": "true",
   "bin": {
-    "assetman": "assetman"
+    "assetman": "assetman.js"
   }
 }
