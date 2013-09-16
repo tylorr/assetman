@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 
+/*
+ * assetman
+ * https://github.com/miningold/assetman
+ *
+ * Copyright (c) 2013 Tylor Reynolds
+ * Licensed under the MIT license.
+ */
+
+'use strict';
+
 var path = require('path'),
     fs = require('fs'),
     util = require('util'),
@@ -12,7 +22,8 @@ var path = require('path'),
     parse;
 
 var cDir = process.cwd(),
-    pDir, assetConfig;
+    pDir, assetConfig,
+    configPath;
 
 // Search for Asset Config file starting with working directory and working
 // up the hierarchy
@@ -205,3 +216,4 @@ var commandSettings = {
 var argv = process.argv.slice(2);
 checkHelp(argv);
 parse(commandSettings, argv);
+
