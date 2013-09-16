@@ -87,12 +87,8 @@ help = function() {
 // Parse agv for arguments, recurse for sub-commands
 parse = function(settings, argv) {
   var commands = settings.commands,
-      arg,
-      len,
-      index,
-      i;
-
-  len = argv.length;
+      len = argv.length,
+      arg, i;
 
   // parse first command found, ignore the rest
   if (commands) {
@@ -169,7 +165,8 @@ convert = function() {
 };
 
 convertAll = function() {
-  var indir = assetConfig.boar_repo;
+  var indir = assetConfig.boar_repo,
+      finder;
 
   // walk file directory, trying to convert all files found
   finder = find(indir);
@@ -216,4 +213,3 @@ var commandSettings = {
 var argv = process.argv.slice(2);
 checkHelp(argv);
 parse(commandSettings, argv);
-
