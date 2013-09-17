@@ -6,7 +6,7 @@ Boar-to-Git asset manager
 Install the module with: `npm install -g assetman`
 
 Create an assets.json file in you project to specify directory, converters and
-filters. Refer to example-assets.json file for help.
+filters. Refer to `example-assets.json` file for help.
 
 ## Examples
 
