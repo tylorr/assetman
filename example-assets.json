@@ -1,0 +1,14 @@
+{
+  "boar_repo": "RawAssets",
+  "target_dir": "Assets",
+  "converters": {
+    ".psd": {
+      "ext": ".png",
+      "command": "convert \"%i[0]\" \"%o\""
+    }
+  },
+  "filters": {
+    "images": [".psd"],
+    "audio": [".wav"]
+  }
+}
