@@ -11,13 +11,13 @@ filters. Refer to `example-assets.json` file for help.
 ## Examples
 
 ```
-assetman recent          # Convert assets modified in the last Boar commit
+assetman recent            # Convert assets modified in the last Boar commit
 
-assetman all             # Convert all assets in Boar repo
+assetman all               # Convert all assets in Boar repo
 
-assetman recent images   # Convert recently modified files that match images filter
+assetman recent images     # Convert recently modified files that match images filter
 
-assetman all audio       # Convert all files that match audio filter
+assetman all images audio  # Convert all files that match audio and images filter
 ```
 
 ## License
