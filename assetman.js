@@ -116,71 +116,101 @@ parse = function(settings, argv) {
 
 var convert,
     convertAll,
-    convertRecent;
+    convertRecent,
+    getConverter;
 
-convert = function() {
-  var len = arguments.length,
-      ext, converter,
-      input, output,
+convert = function(input, converter) {
+  var output,
       indir, outdir,
       absInput, absOutput,
-      re, i;
+      re, i, ext;
 
-  for (i = 0; i < len; i++) {
-    input = arguments[i];
-    ext = path.extname(input);
-    converter = assetConfig.converters[ext];
+  ext = path.extname(input);
 
-    if (converter) {
-      re = new RegExp(ext + '$', 'i');
+  re = new RegExp(ext + '$', 'i');
 
-      // replace extension
-      output = input.replace(re, converter.ext);
+  // replace extension
+  output = input.replace(re, converter.ext);
 
-      indir = assetConfig.boar_repo;
-      outdir = assetConfig.target_dir;
+  indir = assetConfig.boar_repo;
+  outdir = assetConfig.target_dir;
 
-      absInput = path.join(indir, input);
-      absOutput = path.join(outdir, output);
+  absInput = path.join(indir, input);
+  absOutput = path.join(outdir, output);
 
-      // make directories if they don't exist
-      mkdirp(path.dirname(absOutput), function(err) {
-        if (err) {
-          throw err;
+  // make directories if they don't exist
+  mkdirp(path.dirname(absOutput), function(err) {
+    if (err) {
+      throw err;
+    }
+
+    // Populate convert command
+    var command = converter.command.replace('%i', absInput).replace('%o', absOutput);
+    exec(command,
+      function(error, stdout, stderr) {
+        if (error) {
+          throw error;
         }
 
-        // Populate convert command
-        var command = converter.command.replace('%i', absInput).replace('%o', absOutput);
-        exec(command,
-          function(error, stdout, stderr) {
-            if (error) {
-              throw error;
-            }
+        console.log('Produced: ' + absOutput);
+    });
+  });
+};
 
-            console.log('Produced: ' + absOutput);
-        });
-      });
+// Get converter from asset config and check input file against filters
+getConverter = function(input, filters) {
+  var ext = path.extname(input),
+      filterMap = assetConfig.filters,
+      extensions = [],
+      filterExts,
+      filter,
+      len, i;
+
+  // Get list of file extensions from filters specified in asset config
+  len = filters.length;
+  for (i = 0; i < len; i++) {
+    filter = filters[i];
+    filterExts = filterMap[filter];
+
+    // Is this filter spec in asset config?
+    if (filterExts) {
+      extensions = extensions.concat(filterExts);
+    } else {
+      // invalid filter
+      console.error('Filter "' + filter + '" does not exist.');
+      process.exit(1);
     }
+  }
+
+  // There are no filters, or file passes filters
+  if (!extensions.length || ~extensions.indexOf(ext)) {
+    return assetConfig.converters[ext];
   }
 };
 
 convertAll = function() {
   var indir = assetConfig.boar_repo,
+      filters = arguments,
       finder;
 
   // walk file directory, trying to convert all files found
   finder = find(indir);
   finder.on('file', function(file, stat) {
-    convert(path.relative(indir, file));
-  });
+    var input = path.relative(indir, file),
+        converter = getConverter(input, filters);
 
+    if (converter) {
+      convert(input, converter);
+    }
+  });
 };
 
-convertRecent = function(filter) {
+convertRecent = function() {
   var infoPath = path.join(assetConfig.boar_repo, '.boar/info'),
       boarInfo = JSON.parse(fs.readFileSync(infoPath)),
       revision = boarInfo.session_id,
       repoPath = boarInfo.repo_path,
+      filters = arguments,
       command;
 
   command = util.format('boar --repo=%s log -vr %d', repoPath, revision);
@@ -194,8 +224,19 @@ convertRecent = function(filter) {
 
       // Scan for new or modified files
       // A new-file or M modifiedFile
-      var matches = stdout.match(/^[AM]\s*(.+)/m);
-      convert.apply(this, matches.slice(1));
+      var matches = stdout.match(/^[AM]\s*(.+)/m),
+          len = matches.length,
+          converter, i,
+          match;
+
+      for (i = 1; i < len; i++) {
+        match = matches[i];
+        converter = getConverter(match, filters);
+
+        if (converter) {
+          convert(match, converter);
+        }
+      }
   });
 };
 
