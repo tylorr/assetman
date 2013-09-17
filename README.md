@@ -10,7 +10,7 @@ filters. Refer to example-assets.json file for help.
 
 ## Examples
 
-``` js
+```
 assetman recent          # Convert assets modified in the last Boar commit
 
 assetman all             # Convert all assets in Boar repo
