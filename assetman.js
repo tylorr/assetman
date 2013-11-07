@@ -14,32 +14,33 @@ var path = require('path'),
     fs = require('fs'),
     util = require('util'),
     exec = require('child_process').exec,
-    find = require('findit'),
     mkdirp = require('mkdirp'),
+    Glob = require("glob").Glob,
     checkHelp,
     showHelp,
     help,
     parse;
 
-var cDir = process.cwd(),
-    pDir, assetConfig,
+var currentDir = process.cwd(),
+    previousDir, assetConfig,
     configPath;
 
 // Search for Asset Config file starting with working directory and working
 // up the hierarchy
-while (cDir != pDir) {
-  configPath = path.join(cDir, 'assets.json');
+// curr and prev will be the same when root is reached
+while (currentDir != previousDir) {
+  configPath = path.join(currentDir, 'assets.json');
   if (fs.existsSync(configPath)) {
     assetConfig = require(configPath);
 
     // resolve paths
-    assetConfig.boar_repo = path.resolve(cDir, assetConfig.boar_repo);
-    assetConfig.target_dir = path.resolve(cDir, assetConfig.target_dir);
+    assetConfig.boar_repo = path.resolve(currentDir, assetConfig.boar_repo);
+    assetConfig.target_dir = path.resolve(currentDir, assetConfig.target_dir);
     break;
   }
 
-  pDir = cDir;
-  cDir = path.join(cDir, '..');
+  previousDir = currentDir;
+  currentDir = path.join(currentDir, '..');
 }
 
 if (!assetConfig) {
@@ -120,39 +121,40 @@ var convert,
     getConverter;
 
 convert = function(input, converter) {
-  var output,
+  var filename,
       indir, outdir,
-      absInput, absOutput,
+      absInput, absFilename,
       re, i, ext;
 
-  ext = path.extname(input);
-
-  re = new RegExp(ext + '$', 'i');
-
   // replace extension
-  output = input.replace(re, converter.ext);
+  // output = input.replace(re, converter.ext);
+  filename = input.slice(0, input.lastIndexOf(path.extname(input)));
 
   indir = assetConfig.boar_repo;
   outdir = assetConfig.target_dir;
 
   absInput = path.join(indir, input);
-  absOutput = path.join(outdir, output);
-
+  absFilename = path.join(outdir, filename);
   // make directories if they don't exist
-  mkdirp(path.dirname(absOutput), function(err) {
+  mkdirp(path.dirname(absFilename), function(err) {
     if (err) {
       throw err;
     }
 
+    // var commands = con
+
     // Populate convert command
-    var command = converter.command.replace('%i', absInput).replace('%o', absOutput);
+    var command = converter.command.replace('%i', absInput).replace('%n', absFilename);
+
+    // return console.log(command);
+
     exec(command,
       function(error, stdout, stderr) {
         if (error) {
           throw error;
         }
 
-        console.log('Produced: ' + absOutput);
+        console.log('Processed: ' + absInput);
     });
   });
 };
@@ -190,18 +192,27 @@ getConverter = function(input, filters) {
 
 convertAll = function() {
   var indir = assetConfig.boar_repo,
-      filters = arguments,
-      finder;
+      filters = Array.prototype.slice.call(arguments) || [],
+      converters;
 
-  // walk file directory, trying to convert all files found
-  finder = find(indir);
-  finder.on('file', function(file, stat) {
-    var input = path.relative(indir, file),
-        converter = getConverter(input, filters);
+  // Are there filters?
+  if (filters.length !== 0) {
+    converters = assetConfig.converters.filter(function(converter) {
+      return !converter.tag || filters.indexOf(converter.tag) !== -1;
+    });
+  } else {
+    converters = assetConfig.converters;
+  }
 
-    if (converter) {
-      convert(input, converter);
-    }
+  var glob, cache = null;
+  converters.forEach(function(converter) {
+    glob = new Glob(converter.pattern, { cache: cache, cwd: indir });
+    cache = glob.cache;
+
+    glob.on("match", function(file) {
+      // console.log("file matched: " + file);
+      convert(file, converter);
+    })
   });
 };
 
@@ -211,12 +222,12 @@ convertRecent = function() {
       revision = boarInfo.session_id,
       repoPath = boarInfo.repo_path,
       filters = arguments,
-      command;
+      boarLog;
 
-  command = util.format('boar --repo=%s log -vr %d', repoPath, revision);
+  boarLog = util.format('boar --repo=%s log -vr %d', repoPath, revision);
 
   // run boar log
-  exec(command,
+  exec(boarLog,
     function(error, stdout, stderr) {
       if (error) {
         console.error(error);
