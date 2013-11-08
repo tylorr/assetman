@@ -74,7 +74,7 @@ Running `assetman all` will convert the matching `.psd` and `.wav` files in the
 ## Commands
 
 * `all` This command will convert all assets in the `boar_repo` folder.
-* `recent` Scan the boar log and convert and modified or new files in the last commit.
+* `recent` Scan the boar log and convert modified or new files in the last commit.
 * `convert` Takes a pattern argument and converts all the files that match using
 the appropriate converter from `assets.json`. Take care to use quotation marks when
 specifying a pattern. Example: `assetman convert "images/*.*"`.
