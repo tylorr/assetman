@@ -45,7 +45,7 @@ while (currentDir != previousDir) {
 }
 
 if (!assetConfig) {
-  console.error('Could not find assets.json file');
+  console.error('ERROR: Could not find assets.json file');
   process.exit(1);
 }
 
@@ -119,9 +119,11 @@ parse = function(settings, argv) {
 var convert,
     convertAll,
     convertRecent,
+    convertOne,
     getConverter,
     filterConverters;
 
+// convert one file with the provided converter
 convert = function(input, converter) {
   var filename,
       indir, outdir,
@@ -154,7 +156,7 @@ convert = function(input, converter) {
       exec(command,
         function(error, stdout, stderr) {
           if (error) throw err;
-          console.log('Processed: ' + input);
+          console.info('Processed: ' + input);
       });
     });
   });
@@ -176,6 +178,7 @@ getConverter = function(file, converters) {
   return null;
 };
 
+// Get converters with the right tags
 filterConverters = function(filters) {
   // filters may be 'arguments' which isn't a proper array
   filters = Array.prototype.slice.call(filters);
@@ -192,6 +195,7 @@ filterConverters = function(filters) {
   return converters;
 };
 
+// Converts all files in the boar repo
 convertAll = function() {
   var indir = assetConfig.boar_repo,
       converters = filterConverters(arguments);
@@ -207,13 +211,14 @@ convertAll = function() {
   });
 };
 
+// Converts all files that were recently modified in the boar repo
 convertRecent = function() {
   var infoPath = path.join(assetConfig.boar_repo, '.boar/info'),
       converters = filterConverters(arguments);
 
   fs.readFile(infoPath, function(err, boarJSON) {
     if (err) {
-      console.error(assetConfig.boar_repo + " is not a boar repo");
+      console.error("ERROR: " + assetConfig.boar_repo + " is not a boar repo");
       process.exit(1);
     }
 
@@ -225,25 +230,51 @@ convertRecent = function() {
     // run boar log
     exec(boarLog, function(error, stdout, stderr) {
       if (error || stderr) {
-        console.error("Error executing boar log: " + (error || stderr));
+        console.error("ERROR: Error executing boar log: " + (error || stderr));
         process.exit(1);
       }
 
       // Scan for new or modified files
-      // A new-file or M modifiedFile
+      // A new file
+      // M modified file
       var modified = stdout.match(/^[AM]\s*(.+)/m),
           len = modified.length,
           i, file,
           converter;
     
+      // convert each modified/new file
       for (i = 1; i < len; i++) {
         file = modified[i];
         converter = getConverter(file, converters);
         if (converter) {
           convert(file, converter);
+        } else {
+          console.log("WARN: No converter for: " + file);
         }
       }
     });
+  });
+};
+
+// converts all files that meets provided pattern
+convertOne = function(pattern) {
+  if (!pattern) {
+    console.error("ERROR: Pattern must be supplied to convert command.");
+    process.exit(1);
+  }
+
+  var indir = assetConfig.boar_repo;
+
+  var glob = new Glob(pattern, { cwd: indir });
+
+  glob.on('match', function(file) {
+    var converter = getConverter(file, assetConfig.converters);
+
+    if (converter) {
+      convert(file, converter);
+    } else {
+      console.warn("WARN: No converter for: " + file);
+    }
   });
 };
 
@@ -254,6 +285,9 @@ var commandSettings = {
     },
     recent: {
       action: convertRecent
+    },
+    convert: {
+      action: convertOne
     }
   }
 };
