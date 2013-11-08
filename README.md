@@ -34,7 +34,7 @@ In this example we will be using [Git](http://git-scm.com/) as our DVCS.
 
 Setup your Git and Boar repositorys:
 
-```
+```bash
 mkdir my_game
 cd my_game
 
@@ -71,19 +71,15 @@ Add a `assets.json` file to your project:
 Running `assetman all` will convert the matching `.psd` and `.wav` files in the 
 `raw_assets` folder and place the resulets in the `assets` folder.
 
-## Examples
+## Commands
 
-```
-assetman recent            # Convert assets modified in the last Boar commit
+* `all` This command will convert all assets in the `boar_repo` folder.
+* `recent` Scan the boar log and convert and modified or new files in the last commit.
+* `convert` Takes a pattern argument and converts all the files that match using
+the appropriate converter from `assets.json`.
 
-assetman all               # Convert all assets in Boar repo
-
-assetman recent images     # Convert recently modified files that match images filter
-
-assetman all images audio  # Convert all files that match audio and images filter
-
-assetman convert "images/sprite*.psd" # Convert all files that match provided filter (Be careful with quotes)
-```
+Both `all` and `recent` take optional filters that should match the `tag` fields
+in the `assets.json` file such as `assetman all images` or `assetman recent audio images`.
 
 ## License
 Copyright (c) 2013 Tylor Reynolds
