@@ -30,9 +30,46 @@ for any project using large binary, convertible assets and a DVCS repo.
 
 ## Getting Started
 <!-- Install the module with: `npm install -g assetman` (Not actually in the npm repo yet). -->
+In this example we will be using [Git](http://git-scm.com/) as our DVCS.
 
-Create an assets.json file in you project to specify directory, converters and
-filters. Refer to `example-assets.json` file for help.
+Setup your Git and Boar repositorys:
+
+```
+mkdir my_game
+cd my_game
+
+boar --repo=/path/to/boar/repo mksession MyGameAssets
+boar --repo=/path/to/boar/repo import raw_assets/ MyGameAssets
+
+git init # you will probably want to add the raw_assets folder to the .gitignore file
+```
+
+Add a `assets.json` file to your project:
+
+```json
+{
+  "boar_repo": "raw_assets",
+  "target_dir": "assets",
+  "converters" : [
+    {
+      "pattern": "**/*.psd",
+      "tag": "images",
+      "commands": [
+        "convert \"%i[0]\" \"%n@2x.png\"",
+        "convert \"%i[0]\" -resize 50% \"%n@1x.png\"",
+      ]
+    },
+    {
+      "pattern": "effects/**/*.wav",
+      "tag": "audio",
+      "commands": "convert wav file command"
+    }
+  ]
+}
+```
+
+Running `assetman all` will convert the matching `.psd` and `.wav` files in the 
+`raw_assets` folder and place the resulets in the `assets` folder.
 
 ## Examples
 
