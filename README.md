@@ -92,7 +92,7 @@ in the `assets.json` file such as `assetman all images` or `assetman recent audi
     {
       "pattern": "glob pattern to match relative to boar_repo",
       "tag": "optional tag which identifies which filter this converter belongs to",
-      "commands": "a string or array of strings, each one a command line to to execute"
+      "commands": "a string or array of strings, each one a command line to execute"
     }
   ]
 }
