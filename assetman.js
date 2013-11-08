@@ -15,6 +15,7 @@ var path = require('path'),
     util = require('util'),
     exec = require('child_process').exec,
     mkdirp = require('mkdirp'),
+    minimatch = require('minimatch'),
     Glob = require("glob").Glob,
     checkHelp,
     showHelp,
@@ -118,7 +119,8 @@ parse = function(settings, argv) {
 var convert,
     convertAll,
     convertRecent,
-    getConverter;
+    getConverter,
+    filterConverters;
 
 convert = function(input, converter) {
   var filename,
@@ -152,49 +154,33 @@ convert = function(input, converter) {
       exec(command,
         function(error, stdout, stderr) {
           if (error) throw err;
-          console.log('Processed: ' + absInput);
+          console.log('Processed: ' + input);
       });
     });
   });
 };
 
 // Get converter from asset config and check input file against filters
-getConverter = function(input, filters) {
-  var ext = path.extname(input),
-      filterMap = assetConfig.filters,
-      extensions = [],
-      filterExts,
-      filter,
-      len, i;
+getConverter = function(file, converters) {
+  var len = converters.length,
+      i, converter;
 
-  // Get list of file extensions from filters specified in asset config
-  len = filters.length;
-  for (i = 0; i < len; i++) {
-    filter = filters[i];
-    filterExts = filterMap[filter];
+  for (i = 0; i < len; ++i) {
+    converter = converters[i];
 
-    // Is this filter spec in asset config?
-    if (filterExts) {
-      extensions = extensions.concat(filterExts);
-    } else {
-      // invalid filter
-      console.error('Filter "' + filter + '" does not exist.');
-      process.exit(1);
+    if (minimatch(file, converter.pattern)) {
+      return converter;
     }
   }
 
-  // There are no filters, or file passes filters
-  if (!extensions.length || ~extensions.indexOf(ext)) {
-    return assetConfig.converters[ext];
-  }
+  return null;
 };
 
-convertAll = function() {
-  var indir = assetConfig.boar_repo,
-      filters = Array.prototype.slice.call(arguments) || [],
-      converters;
+filterConverters = function(filters) {
+  // filters may be 'arguments' which isn't a proper array
+  filters = Array.prototype.slice.call(filters);
 
-  // Are there filters?
+  var converters;
   if (filters.length !== 0) {
     converters = assetConfig.converters.filter(function(converter) {
       return !converter.tag || filters.indexOf(converter.tag) !== -1;
@@ -203,13 +189,19 @@ convertAll = function() {
     converters = assetConfig.converters;
   }
 
+  return converters;
+};
+
+convertAll = function() {
+  var indir = assetConfig.boar_repo,
+      converters = filterConverters(arguments);
+
   var glob, cache = null;
   converters.forEach(function(converter) {
     glob = new Glob(converter.pattern, { cache: cache, cwd: indir });
     cache = glob.cache;
 
     glob.on("match", function(file) {
-      // console.log("file matched: " + file);
       convert(file, converter);
     })
   });
@@ -217,36 +209,41 @@ convertAll = function() {
 
 convertRecent = function() {
   var infoPath = path.join(assetConfig.boar_repo, '.boar/info'),
-      boarInfo = JSON.parse(fs.readFileSync(infoPath)),
-      revision = boarInfo.session_id,
-      repoPath = boarInfo.repo_path,
-      filters = arguments,
-      boarLog;
+      converters = filterConverters(arguments);
 
-  boarLog = util.format('boar --repo=%s log -vr %d', repoPath, revision);
+  fs.readFile(infoPath, function(err, boarJSON) {
+    if (err) {
+      console.error(assetConfig.boar_repo + " is not a boar repo");
+      process.exit(1);
+    }
 
-  // run boar log
-  exec(boarLog,
-    function(error, stdout, stderr) {
-      if (error) {
-        console.error(error);
+    var boarInfo = JSON.parse(boarJSON),
+        revision = boarInfo.session_id,
+        repoPath = boarInfo.repo_path,
+        boarLog = util.format('boar --repo=%s log -vr %d', repoPath, revision);
+
+    // run boar log
+    exec(boarLog, function(error, stdout, stderr) {
+      if (error || stderr) {
+        console.error("Error executing boar log: " + (error || stderr));
+        process.exit(1);
       }
 
       // Scan for new or modified files
       // A new-file or M modifiedFile
-      var matches = stdout.match(/^[AM]\s*(.+)/m),
-          len = matches.length,
-          converter, i,
-          match;
-
+      var modified = stdout.match(/^[AM]\s*(.+)/m),
+          len = modified.length,
+          i, file,
+          converter;
+    
       for (i = 1; i < len; i++) {
-        match = matches[i];
-        converter = getConverter(match, filters);
-
+        file = modified[i];
+        converter = getConverter(file, converters);
         if (converter) {
-          convert(match, converter);
+          convert(file, converter);
         }
       }
+    });
   });
 };
 
