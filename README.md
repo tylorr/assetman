@@ -8,7 +8,7 @@ to convert the files and place them in a DVCS repo such as Git.
 
 Distributed version control systems often store entire copies of the repository
 in you working directory. Large binary files, such as `.psd` files, cannot be diff'ed
-by Git so any time a change is made to these files, another copy of the PSD is
+by Git so any time a change is made to these files, another copy of the `.psd` is
 added to the repository. Each developer then will end up with multiple copies
 of these large asset files.
 
