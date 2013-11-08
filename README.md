@@ -19,7 +19,7 @@ assetman recent images     # Convert recently modified files that match images f
 
 assetman all images audio  # Convert all files that match audio and images filter
 
-assetman convert "images/sprite*.psd" # Convert all files that match provided filer (Be careful with quotes)
+assetman convert "images/sprite*.psd" # Convert all files that match provided filter (Be careful with quotes)
 ```
 
 ## License
