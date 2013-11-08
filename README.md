@@ -81,6 +81,30 @@ the appropriate converter from `assets.json`.
 Both `all` and `recent` take optional filters that should match the `tag` fields
 in the `assets.json` file such as `assetman all images` or `assetman recent audio images`.
 
+## assets.json
+
+```json
+{
+  "boar_repo": "path to boar working directory",
+  "target_dir": "output directory for converted assets",
+  "converters" : [
+    {
+      "pattern": "glob pattern to match relative to boar_repo",
+      "tag": "optional tag which identifies which filter this converter belongs to",
+      "commands": "a string or array of strings, each one a command line to to execute"
+    }
+  ]
+}
+```
+
+The commands string can include two identifiers. `%i` represents the absolute path
+to the input assets. `%n` represents the absolute path to the output file, 
+excluding the file extension. For example, if `%i` is `/raw_assets/image.psd`
+then `%n` would be `/assets/image`.
+
+All globs are matched using the [minimatch](https://github.com/isaacs/minimatch)
+library.
+
 ## License
 Copyright (c) 2013 Tylor Reynolds
 Licensed under the MIT license.
