@@ -77,7 +77,7 @@ Running `assetman all` will convert the matching `.psd` and `.wav` files in the
 * `recent` Scan the boar log and convert and modified or new files in the last commit.
 * `convert` Takes a pattern argument and converts all the files that match using
 the appropriate converter from `assets.json`. Take care to use quotation marks when
-specifying a pattern. Example: `assetman convert "images/*.*".
+specifying a pattern. Example: `assetman convert "images/*.*"`.
 
 Both `all` and `recent` take optional filters that should match the `tag` fields
 in the `assets.json` file such as `assetman all images` or `assetman recent audio images`.
