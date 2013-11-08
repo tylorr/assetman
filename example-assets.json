@@ -5,7 +5,7 @@
     {
       "pattern": "**/*.psd",
       "tag": "images",
-      "command": "convert \"%i[0]\" \"%n.png\""
+      "commands": "convert \"%i[0]\" \"%n.png\""
     }
   ]
 }

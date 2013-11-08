@@ -142,19 +142,18 @@ convert = function(input, converter) {
     }
 
     // var commands = con
+    // If a string, turn into array: [string]
+    var commands = ([]).concat(converter.commands);
 
-    // Populate convert command
-    var command = converter.command.replace('%i', absInput).replace('%n', absFilename);
+    commands.forEach(function(command) {
+      // Populate convert command
+      command = command.replace('%i', absInput).replace('%n', absFilename);
 
-    // return console.log(command);
-
-    exec(command,
-      function(error, stdout, stderr) {
-        if (error) {
-          throw error;
-        }
-
-        console.log('Processed: ' + absInput);
+      exec(command,
+        function(error, stdout, stderr) {
+          if (error) throw err;
+          console.log('Processed: ' + absInput);
+      });
     });
   });
 };

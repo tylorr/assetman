@@ -1,7 +1,7 @@
 {
   "name": "assetman",
   "description": "Boar-to-Git asset manager",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "homepage": "https://github.com/miningold/assetman",
   "author": {
     "name": "Tylor Reynolds",
