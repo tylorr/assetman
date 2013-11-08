@@ -32,6 +32,8 @@ for any project using large binary, convertible assets and a DVCS repo.
 <!-- Install the module with: `npm install -g assetman` (Not actually in the npm repo yet). -->
 In this example we will be using [Git](http://git-scm.com/) as our DVCS.
 
+Install assetman with: `npm install -g assetman`
+
 Setup your Git and Boar repositorys:
 
 ```bash
