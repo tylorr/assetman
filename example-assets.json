@@ -1,11 +1,6 @@
 {
-  "boar_repo": "RawAssets",
-  "target_dir": "Assets",
-  "converters" : [
-    {
-      "pattern": "**/*.psd",
-      "tag": "images",
-      "commands": "convert \"%i[0]\" \"%n.png\""
-    }
-  ]
+  "**/*.psd": {
+    "$filename.png": "convert \"$in[0]\" -resize 50% \"$out\"",
+    "$filename@2x.png": "convert \"$in[0]\" \"$out\""
+  }
 }

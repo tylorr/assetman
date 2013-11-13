@@ -14,40 +14,13 @@ var path = require('path'),
     fs = require('fs'),
     util = require('util'),
     exec = require('child_process').exec,
-    mkdirp = require('mkdirp'),
     minimatch = require('minimatch'),
-    Glob = require("glob").Glob,
+    glob = require('glob'),
+    ninja = require('ninja-build-gen')(),
     checkHelp,
     showHelp,
     help,
     parse;
-
-var currentDir = process.cwd(),
-    previousDir, assetConfig,
-    configPath;
-
-// Search for Asset Config file starting with working directory and working
-// up the hierarchy
-// curr and prev will be the same when root is reached
-while (currentDir != previousDir) {
-  configPath = path.join(currentDir, 'assets.json');
-  if (fs.existsSync(configPath)) {
-    assetConfig = require(configPath);
-
-    // resolve paths
-    assetConfig.boar_repo = path.resolve(currentDir, assetConfig.boar_repo);
-    assetConfig.target_dir = path.resolve(currentDir, assetConfig.target_dir);
-    break;
-  }
-
-  previousDir = currentDir;
-  currentDir = path.join(currentDir, '..');
-}
-
-if (!assetConfig) {
-  console.error('ERROR: Could not find assets.json file');
-  process.exit(1);
-}
 
 // check argv for -h or --help
 checkHelp = function(argv) {
@@ -116,180 +89,83 @@ parse = function(settings, argv) {
   }
 };
 
-var convert,
-    convertAll,
-    convertRecent,
-    convertOne,
-    getConverter,
-    filterConverters;
+var getConfig = function(srcPath) {
+  var configPath = path.join(srcPath, 'assets.json');
 
-// convert one file with the provided converter
-convert = function(input, converter) {
-  var filename,
-      indir, outdir,
-      absInput, absFilename,
-      re, i, ext;
-
-  // replace extension
-  // output = input.replace(re, converter.ext);
-  filename = input.slice(0, input.lastIndexOf(path.extname(input)));
-
-  indir = assetConfig.boar_repo;
-  outdir = assetConfig.target_dir;
-
-  absInput = path.join(indir, input);
-  absFilename = path.join(outdir, filename);
-  // make directories if they don't exist
-  mkdirp(path.dirname(absFilename), function(err) {
-    if (err) {
-      throw err;
-    }
-
-    // var commands = con
-    // If a string, turn into array: [string]
-    var commands = ([]).concat(converter.commands);
-
-    commands.forEach(function(command) {
-      // Populate convert command
-      command = command.replace('%i', absInput).replace('%n', absFilename);
-
-      exec(command,
-        function(error, stdout, stderr) {
-          if (error) throw err;
-          console.info('Processed: ' + input);
-      });
-    });
-  });
-};
-
-// Get converter from asset config and check input file against filters
-getConverter = function(file, converters) {
-  var len = converters.length,
-      i, converter;
-
-  for (i = 0; i < len; ++i) {
-    converter = converters[i];
-
-    if (minimatch(file, converter.pattern)) {
-      return converter;
-    }
-  }
-
-  return null;
-};
-
-// Get converters with the right tags
-filterConverters = function(filters) {
-  // filters may be 'arguments' which isn't a proper array
-  filters = Array.prototype.slice.call(filters);
-
-  var converters;
-  if (filters.length !== 0) {
-    converters = assetConfig.converters.filter(function(converter) {
-      return !converter.tag || filters.indexOf(converter.tag) !== -1;
-    });
+  if (fs.existsSync(configPath)) {
+    return require(configPath);
   } else {
-    converters = assetConfig.converters;
-  }
-
-  return converters;
-};
-
-// Converts all files in the boar repo
-convertAll = function() {
-  var indir = assetConfig.boar_repo,
-      converters = filterConverters(arguments);
-
-  var glob, cache = null;
-  converters.forEach(function(converter) {
-    glob = new Glob(converter.pattern, { cache: cache, cwd: indir });
-    cache = glob.cache;
-
-    glob.on("match", function(file) {
-      convert(file, converter);
-    })
-  });
-};
-
-// Converts all files that were recently modified in the boar repo
-convertRecent = function() {
-  var infoPath = path.join(assetConfig.boar_repo, '.boar/info'),
-      converters = filterConverters(arguments);
-
-  fs.readFile(infoPath, function(err, boarJSON) {
-    if (err) {
-      console.error("ERROR: " + assetConfig.boar_repo + " is not a boar repo");
-      process.exit(1);
-    }
-
-    var boarInfo = JSON.parse(boarJSON),
-        revision = boarInfo.session_id,
-        repoPath = boarInfo.repo_path,
-        boarLog = util.format('boar --repo=%s log -vr %d', repoPath, revision);
-
-    // run boar log
-    exec(boarLog, function(error, stdout, stderr) {
-      if (error || stderr) {
-        console.error("ERROR: Error executing boar log: " + (error || stderr));
-        process.exit(1);
-      }
-
-      // Scan for new or modified files
-      // A new file
-      // M modified file
-      var modified = stdout.match(/^[AM]\s*(.+)/m),
-          len = modified.length,
-          i, file,
-          converter;
-    
-      // convert each modified/new file
-      for (i = 1; i < len; i++) {
-        file = modified[i];
-        converter = getConverter(file, converters);
-        if (converter) {
-          convert(file, converter);
-        } else {
-          console.log("WARN: No converter for: " + file);
-        }
-      }
-    });
-  });
-};
-
-// converts all files that meets provided pattern
-convertOne = function(pattern) {
-  if (!pattern) {
-    console.error("ERROR: Pattern must be supplied to convert command.");
+    console.error('ERROR: The source directory "' + srcPath + '" does not appear to contain assets.json.');
     process.exit(1);
   }
+};
 
-  var indir = assetConfig.boar_repo;
+var generate = function(srcPath) {
+  srcPath = srcPath || '';
+  srcPath = path.resolve(process.cwd(), srcPath);
 
-  var glob = new Glob(pattern, { cwd: indir });
+  var buildPath = process.cwd(),
+      assetConfig = getConfig(srcPath);
 
-  glob.on('match', function(file) {
-    var converter = getConverter(file, assetConfig.converters);
+  var srcRelPath = path.relative(buildPath, srcPath);
 
-    if (converter) {
-      convert(file, converter);
-    } else {
-      console.warn("WARN: No converter for: " + file);
+  var compareEchoPath = path.join(__dirname, 'compare_echo.js'),
+      command = 'node ' + compareEchoPath + ' "$glob" $out ' + srcRelPath;
+  ninja.rule('compare_echo')
+    .restat(true)
+    .description('Update file list')
+    .run(command);
+
+  ninja.rule('rebuild')
+    .generator(true)
+    .description('Generate build.ninja')
+    .run('assetman.cmd ' + srcRelPath);
+
+  for (var rule in assetConfig.rules) {
+    ninja.rule(rule).run(assetConfig.rules[rule]);
+  }
+
+  var patterns = [];
+  var assets = [];
+  for (var pattern in assetConfig.files) {
+    patterns.push(pattern);
+    var files = glob.sync(pattern, {cwd: srcPath});
+
+    var len = files.length, i;
+    for (i = 0; i < len; ++i) {
+      var target = path.relative(buildPath, path.join(srcPath, files[i]));
+      var inRelPath = files[i];
+      var relDir = path.dirname(inRelPath);
+
+      var filename = path.basename(inRelPath, path.extname(inRelPath));
+
+      var outPatterns = assetConfig.files[pattern];
+      for (var outPattern in outPatterns) {
+        var rule = outPatterns[outPattern];
+        var outName = outPattern.replace(/\$filename/, filename);
+        var outRelPath = path.join(relDir, outName);
+
+        ninja.edge(outRelPath).from(target).using(rule);
+        assets.push(outRelPath);
+      }
     }
-  });
+  }
+
+  var globs = patterns.join(' ');
+  ninja.edge('.dirty');
+  ninja.edge('.files').from('.dirty').using('compare_echo').assign('glob', globs);
+
+  var assetConfigPath = path.join(srcRelPath, 'assets.json');
+  ninja.edge('build.ninja').from(['.files', assetConfigPath]).using('rebuild');
+
+  ninja.edge('assets').from(assets);
+  ninja.byDefault('assets');
+
+  ninja.save('build.ninja');
 };
 
 var commandSettings = {
-  commands: {
-    all: {
-      action: convertAll
-    },
-    recent: {
-      action: convertRecent
-    },
-    convert: {
-      action: convertOne
-    }
-  }
+  action: generate
 };
 
 var argv = process.argv.slice(2);

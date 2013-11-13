@@ -1,7 +1,7 @@
 {
   "name": "assetman",
   "description": "Boar-to-DVCS asset manager",
-  "version": "0.4.1",
+  "version": "1.0.0",
   "homepage": "https://github.com/miningold/assetman",
   "author": {
     "name": "Tylor Reynolds",
@@ -30,7 +30,7 @@
   "dependencies": {
     "glob": "~3.2.6",
     "minimatch": "~0.2.12",
-    "mkdirp": "~0.3.5"
+    "ninja-build-gen": "~0.1.1"
   },
   "preferGlobal": "true",
   "bin": {
