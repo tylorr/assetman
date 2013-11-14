@@ -1,6 +1,12 @@
 {
-  "**/*.psd": {
-    "$filename.png": "convert \"$in[0]\" -resize 50% \"$out\"",
-    "$filename@2x.png": "convert \"$in[0]\" \"$out\""
+  "rules": {
+    "convert2x": "image-convert \"$in\"[0]  \"$out\"",
+    "convert1x": "image-convert \"$in\"[0] -resize 50% \"$out\""
+  },
+  "edges": {
+    "**/*.psd": {
+      ".png": "convert2x",
+      "@2x.png": "convert1x"
+    }
   }
 }

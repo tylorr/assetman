@@ -89,8 +89,8 @@ parse = function(settings, argv) {
   }
 };
 
-var getConfig = function(srcPath) {
-  var configPath = path.join(srcPath, 'assets.json');
+var getConfig = function(absSrcPath) {
+  var configPath = path.join(absSrcPath, 'assets.json');
 
   if (fs.existsSync(configPath)) {
     return require(configPath);
@@ -101,65 +101,81 @@ var getConfig = function(srcPath) {
 };
 
 var generate = function(srcPath) {
-  srcPath = srcPath || '';
-  srcPath = path.resolve(process.cwd(), srcPath);
+  srcPath = srcPath || '.';
+  // srcPath = path.resolve(process.cwd(), srcPath);
+
+  var absSrcPath = path.resolve(process.cwd(), srcPath);
 
   var buildPath = process.cwd(),
-      assetConfig = getConfig(srcPath);
+      assetConfig = getConfig(absSrcPath);
 
-  var srcRelPath = path.relative(buildPath, srcPath);
-
+  // Setup rule for building file list file
   var compareEchoPath = path.join(__dirname, 'compare_echo.js'),
-      command = 'node ' + compareEchoPath + ' "$glob" $out ' + srcRelPath;
-  ninja.rule('compare_echo')
+      command = 'node ' + compareEchoPath + ' "$glob" $out ' + srcPath;
+  ninja.rule('COMPARE_ECHO')
     .restat(true)
-    .description('Update file list')
+    .description('Updating file list...')
     .run(command);
 
-  ninja.rule('rebuild')
+  // Setup rule for generating build.ninja
+  ninja.rule('GENERATE')
     .generator(true)
-    .description('Generate build.ninja')
-    .run('assetman.cmd ' + srcRelPath);
+    .description('Re-running assetman...')
+    .run('assetman.cmd ' + srcPath);
 
+  ninja.rule('CLEAN')
+    .run('ninja -t clean')
+    .description('Cleaning built files...');
+
+
+  // Generate rules from assets.json
   for (var rule in assetConfig.rules) {
     ninja.rule(rule).run(assetConfig.rules[rule]);
   }
 
-  var patterns = [];
-  var assets = [];
-  for (var pattern in assetConfig.files) {
-    patterns.push(pattern);
+  var outputs = [];
+  for (var pattern in assetConfig.edges) {
+
+    // find files that match each pattern
     var files = glob.sync(pattern, {cwd: srcPath});
 
-    var len = files.length, i;
-    for (i = 0; i < len; ++i) {
-      var target = path.relative(buildPath, path.join(srcPath, files[i]));
-      var inRelPath = files[i];
-      var relDir = path.dirname(inRelPath);
+    // create build edge for each file found
+    files.forEach(function(file) {
 
-      var filename = path.basename(inRelPath, path.extname(inRelPath));
+      // use path.join to convert path seperator to OS specific
+      file = path.join(file);
 
-      var outPatterns = assetConfig.files[pattern];
-      for (var outPattern in outPatterns) {
-        var rule = outPatterns[outPattern];
-        var outName = outPattern.replace(/\$filename/, filename);
-        var outRelPath = path.join(relDir, outName);
+      var inputPath = path.join(srcPath, file),
+          ext = path.extname(file),
+          noExt = file.replace(new RegExp(ext + '$'), '');
 
-        ninja.edge(outRelPath).from(target).using(rule);
-        assets.push(outRelPath);
+      // Create edge from each output postfix
+      var outputRules = assetConfig.edges[pattern];
+      for (var postfix in outputRules) {
+        var rule = outputRules[postfix];
+        var outputPath = noExt + postfix;
+
+        ninja.edge(outputPath).from(inputPath).using(rule);
+
+        // collect outputs
+        outputs.push(outputPath);
       }
-    }
+    });
   }
 
-  var globs = patterns.join(' ');
+  // Setup edge for building file list
+  var globs = Object.keys(assetConfig.edges).join(' ');
   ninja.edge('.dirty');
-  ninja.edge('.files').from('.dirty').using('compare_echo').assign('glob', globs);
+  ninja.edge('.files').from('.dirty').using('COMPARE_ECHO').assign('glob', globs);
 
-  var assetConfigPath = path.join(srcRelPath, 'assets.json');
-  ninja.edge('build.ninja').from(['.files', assetConfigPath]).using('rebuild');
+  // Setup edge for building build.ninja
+  var assetConfigPath = path.join(srcPath, 'assets.json');
+  ninja.edge('build.ninja').from(['.files', assetConfigPath]).using('GENERATE');
 
-  ninja.edge('assets').from(assets);
-  ninja.byDefault('assets');
+  ninja.edge('clean').using('CLEAN');
+
+  // Setup defaults
+  ninja.byDefault(outputs.join(' '));
 
   ninja.save('build.ninja');
 };

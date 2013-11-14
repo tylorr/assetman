@@ -1,7 +1,7 @@
 {
   "name": "assetman",
-  "description": "Boar-to-DVCS asset manager",
-  "version": "1.0.0",
+  "description": "Ninja generator with focus on glob patterns",
+  "version": "1.1.0",
   "homepage": "https://github.com/miningold/assetman",
   "author": {
     "name": "Tylor Reynolds",
