@@ -12,9 +12,6 @@
 
 var path = require('path'),
     fs = require('fs'),
-    util = require('util'),
-    exec = require('child_process').exec,
-    minimatch = require('minimatch'),
     glob = require('glob'),
     ninja = require('ninja-build-gen')(),
     checkHelp,
@@ -40,16 +37,12 @@ checkHelp = function(argv) {
 // Show usage for this command
 showHelp = function() {
   console.log();
-  console.log('  Usage: assetman [options] <command>');
+  console.log('  Usage: assetman [src_path]');
   console.log();
-  console.log('  Commands:');
+  console.log('  [src_path]  Path to source direcctory containing assets.json');
+  console.log('              defaults to current directory');
   console.log();
-  console.log('    all [filter]     Convert all assets, optional filter.');
-  console.log('    recent [filter]  Convert recently modified assets, optional filter.');
-  console.log();
-  console.log('  Options:');
-  console.log();
-  console.log('    -h, --help  Show usage information');
+  console.log('  -h, --help  Show usage information');
   console.log();
 };
 
