@@ -1,6 +1,6 @@
 # assetman
 
-Assetman is a Ninja generator that lets you use wildcards/glob patterns. This is
+Assetman is a Ninja generator that lets you use wildcard/glob patterns. This is
 useful when building asset files such as images and audio because there are often
 many asset additions and deletions.
 
