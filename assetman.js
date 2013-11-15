@@ -127,6 +127,11 @@ var SingleBuilder = (function() {
     return this;
   };
 
+  SingleBuilder.prototype.toExt = function(ext) {
+    this.target = '$filename' + ext;
+    return this;
+  };
+
   SingleBuilder.prototype.assign = function(key, value) {
     this.assignments[key] = value;
     return this;
