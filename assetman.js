@@ -231,9 +231,18 @@ var compileMany = function(ninja, manys, srcPath) {
 
     if (many.targets.length == 0) {
       console.warn('WARN: No targets specified for many clause with pattern: ' + many.pattern);
+      return;
     }
 
-    ninja.edge(many.targets).from(files).using(many.rule);
+    var edge = ninja.edge(many.targets);
+
+    edge.from(files).using(many.rule);
+
+    var value;
+    for (var key in many.assignments) {
+      value = many.assignments[key];
+      edge.assign(key, value);
+    }
   });
 };
 
