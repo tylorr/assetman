@@ -114,6 +114,7 @@ var SingleBuilder = (function() {
   function SingleBuilder(pattern) {
     this.pattern = pattern;
     this.buildRelative = false;
+    this.assignments = {};
   }
 
   SingleBuilder.prototype.fromBuild = function(fromBuild) {
@@ -123,6 +124,11 @@ var SingleBuilder = (function() {
 
   SingleBuilder.prototype.to = function(ext) {
     this.ext = ext;
+    return this;
+  };
+
+  SingleBuilder.prototype.assign = function(key, value) {
+    this.assignments[key] = value;
     return this;
   };
 
@@ -184,6 +190,14 @@ var setupUtils = function(ninja, srcPath) {
     .description('Cleaning built files...');
 };
 
+var edgeAssign = function(edge, assign) {
+  var value;
+  for (var key in assign) {
+    value = assign[key];
+    edge.assign(key, value);
+  }
+};
+
 var compileRules = function(ninja, rules) {
   rules.forEach(function(rule) {
     ninja.rule(rule.name).run(rule.command);
@@ -207,7 +221,9 @@ var compileSingles = function(ninja, singles, srcPath) {
           outputPath = noExt + single.ext,
           inputPath;
 
-      ninja.edge(outputPath).from(inputPath).using(single.rule);
+      var edge = ninja.edge(outputPath)
+      edge.from(inputPath).using(single.rule);
+      edgeAssign(edge, single.assignments);
     });
   });
 };
@@ -230,14 +246,8 @@ var compileBundles = function(ninja, bundles, srcPath) {
     }
 
     var edge = ninja.edge(bundle.targets);
-
     edge.from(files).using(bundle.rule);
-
-    var value;
-    for (var key in bundle.assignments) {
-      value = bundle.assignments[key];
-      edge.assign(key, value);
-    }
+    edgeAssign(edge, bundle.assignments);
   });
 };
 
