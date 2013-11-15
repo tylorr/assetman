@@ -122,8 +122,8 @@ var SingleBuilder = (function() {
     return this;
   };
 
-  SingleBuilder.prototype.to = function(ext) {
-    this.ext = ext;
+  SingleBuilder.prototype.to = function(target) {
+    this.target = target;
     return this;
   };
 
@@ -216,10 +216,9 @@ var compileSingles = function(ninja, singles, srcPath) {
       file = path.join(file);
 
       var inputPath = path.join(filepath, file),
-          ext = path.extname(file),
-          noExt = file.replace(new RegExp(ext + '$'), ''),
-          outputPath = noExt + single.ext,
-          inputPath;
+          filename = path.basename(file, path.extname(file)),
+          outName = single.target.replace('$filename', filename),
+          outputPath = path.join(path.dirname(file), outName);
 
       var edge = ninja.edge(outputPath)
       edge.from(inputPath).using(single.rule);
