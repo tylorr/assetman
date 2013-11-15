@@ -55,11 +55,6 @@ help = function() {
   process.exit();
 };
 
-// var OneBuilder = (function() {
-//   function OneBuilder()
-// }); 
-
-
 
 // // Parse agv for arguments, recurse for sub-commands
 // parse = function(settings, argv) {
@@ -115,58 +110,58 @@ var RuleBuilder = (function() {
   return RuleBuilder;
 })();
 
-var OneBuilder = (function() {
-  function OneBuilder(pattern) {
+var SingleBuilder = (function() {
+  function SingleBuilder(pattern) {
     this.pattern = pattern;
     this.buildRelative = false;
   }
 
-  OneBuilder.prototype.fromBuild = function(fromBuild) {
+  SingleBuilder.prototype.fromBuild = function(fromBuild) {
     this.buildRelative = fromBuild;
     return this;
   };
 
-  OneBuilder.prototype.to = function(ext) {
+  SingleBuilder.prototype.to = function(ext) {
     this.ext = ext;
     return this;
   };
 
-  OneBuilder.prototype.using = function(rule) {
+  SingleBuilder.prototype.using = function(rule) {
     this.rule = rule;
     return this;
   };
 
-  return OneBuilder
+  return SingleBuilder
 })();
 
-var ManyBuilder = (function() {
-  function ManyBuilder (pattern) {
+var BundleBuilder = (function() {
+  function BundleBuilder (pattern) {
     this.pattern = pattern;
     this.buildRelative = false;
     this.assignments = {};
     this.targets = [];
   }
 
-  ManyBuilder.prototype.fromBuild = function(fromBuild) {
+  BundleBuilder.prototype.fromBuild = function(fromBuild) {
     this.buildRelative = fromBuild;
     return this;
   };
 
-  ManyBuilder.prototype.to = function(files) {
+  BundleBuilder.prototype.to = function(files) {
     this.targets = this.targets.concat(files);
     return this;
   };
 
-  ManyBuilder.prototype.assign = function(key, value) {
+  BundleBuilder.prototype.assign = function(key, value) {
     this.assignments[key] = value;
     return this;
   };
 
-  ManyBuilder.prototype.using = function(rule) {
+  BundleBuilder.prototype.using = function(rule) {
     this.rule = rule;
   };
 
-  return ManyBuilder;
+  return BundleBuilder;
 })();
 
 var setupUtils = function(ninja, srcPath) {
@@ -195,11 +190,11 @@ var compileRules = function(ninja, rules) {
   });
 };
 
-var compileOnes = function(ninja, ones, srcPath) {
-  ones.forEach(function(one) {
-    var filepath  = one.buildRelative ? '.' : srcPath,
-        cache = one.buildRelative ? buildCache : srcCache,
-        files = glob.sync(one.pattern, {cwd: filepath, cache: cache});
+var compileSingles = function(ninja, singles, srcPath) {
+  singles.forEach(function(single) {
+    var filepath  = single.buildRelative ? '.' : srcPath,
+        cache = single.buildRelative ? buildCache : srcCache,
+        files = glob.sync(single.pattern, {cwd: filepath, cache: cache});
 
     files.forEach(function(file) {
 
@@ -209,38 +204,38 @@ var compileOnes = function(ninja, ones, srcPath) {
       var inputPath = path.join(filepath, file),
           ext = path.extname(file),
           noExt = file.replace(new RegExp(ext + '$'), ''),
-          outputPath = noExt + one.ext,
+          outputPath = noExt + single.ext,
           inputPath;
 
-      ninja.edge(outputPath).from(inputPath).using(one.rule);
+      ninja.edge(outputPath).from(inputPath).using(single.rule);
     });
   });
 };
 
-var compileMany = function(ninja, manys, srcPath) {
-  manys.forEach(function(many) {
-    var filepath = many.buildRelative ? '.' : srcPath,
-        cache = many.buildRelative ? buildCache : srcCache,
-        files = glob.sync(many.pattern, {cwd: filepath, cache: cache});
+var compileBundles = function(ninja, bundles, srcPath) {
+  bundles.forEach(function(bundle) {
+    var filepath = bundle.buildRelative ? '.' : srcPath,
+        cache = bundle.buildRelative ? buildCache : srcCache,
+        files = glob.sync(bundle.pattern, {cwd: filepath, cache: cache});
 
-    if (!many.buildRelative) {
+    if (!bundle.buildRelative) {
       files = _.map(files, function(file) {
         return path.join(srcPath, file);
       });
     }
 
-    if (many.targets.length == 0) {
-      console.warn('WARN: No targets specified for many clause with pattern: ' + many.pattern);
+    if (bundle.targets.length == 0) {
+      console.warn('WARN: No targets specified for bundle clause with pattern: ' + bundle.pattern);
       return;
     }
 
-    var edge = ninja.edge(many.targets);
+    var edge = ninja.edge(bundle.targets);
 
-    edge.from(files).using(many.rule);
+    edge.from(files).using(bundle.rule);
 
     var value;
-    for (var key in many.assignments) {
-      value = many.assignments[key];
+    for (var key in bundle.assignments) {
+      value = bundle.assignments[key];
       edge.assign(key, value);
     }
   });
@@ -257,8 +252,8 @@ var generate = function(srcPath) {
   setupUtils(ninja, srcPath);
 
   var rules = [],
-      ones = [],
-      many = [];
+      singles = [],
+      bundles = [];
 
   var listBuild = function(list, Type) {
     return function(arg) {
@@ -281,28 +276,17 @@ var generate = function(srcPath) {
     clearInterval: undefined,
 
     rule: listBuild(rules, RuleBuilder),
-    one: listBuild(ones, OneBuilder),
-    many: listBuild(many, ManyBuilder)
+    single: listBuild(singles, SingleBuilder),
+    bundle: listBuild(bundles, BundleBuilder)
   };
 
   (new Function('with(this) {' + assetConfigStr + '}')).apply(mask);
 
   compileRules(ninja, rules);
-  compileOnes(ninja, ones, srcPath);
-  compileMany(ninja, many, srcPath);
+  compileSingles(ninja, singles, srcPath);
+  compileBundles(ninja, bundles, srcPath);
 
   ninja.save('build.ninja');
-  // console.log(many.length);
-  // var mask = _.pick(global, 'console')
-  // console.log(global);
-
-  // console.log(assetConfigStr);
-
-      // assetConfig = getConfig(absSrcPath);
-
-  
-
- 
 
 
   // // Generate rules from assets.json
