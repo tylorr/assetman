@@ -26,12 +26,20 @@
   },
   "scripts": {},
   "devDependencies": {},
-  "keywords": [],
+  "keywords": [
+    "ninja",
+    "build",
+    "generate",
+    "configure",
+    "build.ninja",
+    "assets",
+    "glob",
+    "wildcard"
+  ],
   "dependencies": {
     "glob": "~3.2.6",
     "minimatch": "~0.2.12",
-    "ninja-build-gen": "~0.1.1",
-    "lodash": "~2.3.0"
+    "ninja-build-gen": "~0.1.1"
   },
   "preferGlobal": "true",
   "bin": {

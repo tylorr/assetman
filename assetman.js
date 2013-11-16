@@ -15,7 +15,6 @@ var path = require('path'),
     glob = require('glob'),
     minimatch = require('minimatch'),
     ninjaGen = require('ninja-build-gen'),
-    _ = require('lodash'),
     srcCache = {},
     buildCache = {},
     checkHelp,
@@ -202,7 +201,7 @@ var compileEdges = function(edgeBuilders, params, compileBuilder) {
 var compilePostBuilders = function(params) {
   var postOutputs = [];
   params.postBuilders.forEach(function(post) {
-    var files = _.filter(params.outputs, function(output) {
+    var files = params.outputs.filter(function(output) {
       return minimatch(output, post.builder.pattern);
     });
 
@@ -244,7 +243,7 @@ var compileSingle = function(ninja, single, files, srcPath) {
 // generates an edge for all files
 var compileBundle = function(ninja, bundle, files, srcPath) {
   if (!bundle.buildRelative) {
-    files = _.map(files, function(file) {
+    files = files.map(function(file) {
       return path.join(srcPath, file);
     });
   }
