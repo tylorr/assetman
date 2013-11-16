@@ -13,6 +13,7 @@
 var path = require('path'),
     fs = require('fs'),
     glob = require('glob'),
+    minimatch = require('minimatch'),
     ninjaGen = require('ninja-build-gen'),
     _ = require('lodash'),
     srcCache = {},
@@ -169,23 +170,34 @@ var compileRules = function(ninja, rules) {
 
 var compileEdges = function(edgeBuilders, params, compileBuilder) {
   edgeBuilders.forEach(function(edgeBuilder) {
-    var cache, files, filepath;
-
     if (edgeBuilder.buildRelative) {
-      filepath = '.';
-      cache = buildCache;
-      params.buildPatterns[edgeBuilder.pattern] = true;
-    } else {
-      filepath = params.srcPath;
-      cache = srcCache;
-      params.srcPatterns[edgeBuilder.pattern] = true;
+      params.postBuilders.push({
+        builder: edgeBuilder,
+        compiler: compileBuilder
+      });
+      return;
     }
 
-    files = glob.sync(edgeBuilder.pattern, {cwd: filepath, cache: cache});
+    params.srcPatterns[edgeBuilder.pattern] = true;
 
-    var outputs = compileBuilder(params.ninja, edgeBuilder, files, filepath);
+    var files = glob.sync(edgeBuilder.pattern, {cwd: params.srcPath, cache: srcCache});
+
+    var outputs = compileBuilder(params.ninja, edgeBuilder, files, params.srcPath);
     params.outputs = params.outputs.concat(outputs);
   });
+};
+
+var compilePostBuilders = function(params) {
+  var postOutputs = [];
+  params.postBuilders.forEach(function(post) {
+    var files = _.filter(params.outputs, function(output) {
+      return minimatch(output, post.builder.pattern);
+    });
+    var outputs = post.compiler(params.ninja, post.builder, files, '.');
+    postOutputs = postOutputs.concat(outputs);
+  });
+
+  params.outputs = params.outputs.concat(postOutputs);
 };
 
 var compileSingle = function(ninja, single, files, srcPath) {
@@ -292,8 +304,8 @@ var generate = function(srcPath) {
   var params = {
     ninja: ninja,
     srcPath: srcPath,
+    postBuilders: [],
     srcPatterns: {},
-    buildPatterns: {},
     outputs: []
   };
 
@@ -301,23 +313,16 @@ var generate = function(srcPath) {
   compileEdges(singles, params, compileSingle);
   compileEdges(bundles, params, compileBundle);
 
+  compilePostBuilders(params);
+
   ninja.edge('.dirty');
 
   var srcFileList = '.src_files',
       buildFileList = '.build_files';
 
-  var srcDep = compileGlobLists(ninja, srcFileList, params.srcPatterns, srcPath);
-  var buildDep = compileGlobLists(ninja, buildFileList, params.buildPatterns, '.');
+  compileGlobLists(ninja, srcFileList, params.srcPatterns, srcPath);
 
-  var rebuildDeps = [assetConfigPath];
-
-  if (srcDep) {
-    rebuildDeps.push(srcFileList);
-  }
-
-  if (buildDep) {
-    rebuildDeps.push(buildFileList);
-  }
+  var rebuildDeps = [assetConfigPath, srcFileList];
 
   ninja.edge('build.ninja')
     .from(rebuildDeps)
