@@ -56,6 +56,7 @@ help = function() {
   process.exit();
 };
 
+// Helper class used in config script to assemble rules
 var RuleBuilder = (function() {
   function RuleBuilder(name) {
     this.name = name;
@@ -69,6 +70,8 @@ var RuleBuilder = (function() {
   return RuleBuilder;
 })();
 
+
+// Helper class used in config script to assemble single edges
 var SingleBuilder = (function() {
   function SingleBuilder(pattern) {
     this.pattern = pattern;
@@ -104,6 +107,7 @@ var SingleBuilder = (function() {
   return SingleBuilder
 })();
 
+// Helper class used in config script to assemble bundle edges
 var BundleBuilder = (function() {
   function BundleBuilder (pattern) {
     this.pattern = pattern;
@@ -134,6 +138,7 @@ var BundleBuilder = (function() {
   return BundleBuilder;
 })();
 
+// Assemble Util rules in ninja
 var setupUtilRules = function(ninja, srcPath) {
   // Setup rule for building file list file
   var compareEchoPath = path.join(__dirname, 'compare_echo.js'),
@@ -154,6 +159,8 @@ var setupUtilRules = function(ninja, srcPath) {
     .description('Cleaning built files...');
 };
 
+// Loop through assign object keys and values and
+// assign them as variables on edge
 var edgeAssign = function(edge, assign) {
   var value;
   for (var key in assign) {
@@ -162,12 +169,18 @@ var edgeAssign = function(edge, assign) {
   }
 };
 
+// Loop over RuleBuilders and generate ninja rules
 var compileRules = function(ninja, rules) {
   rules.forEach(function(rule) {
     ninja.rule(rule.name).run(rule.command);
   });
 };
 
+// Loop over edge builder class, compile list of files that match the pattern
+// and call the compile callback.
+// Edges that are build relative are a special condition and only work on files
+// that are outputs of other build statements.
+// These edgeBuilders are saved for later
 var compileEdges = function(edgeBuilders, params, compileBuilder) {
   edgeBuilders.forEach(function(edgeBuilder) {
     if (edgeBuilder.buildRelative) {
@@ -187,6 +200,8 @@ var compileEdges = function(edgeBuilders, params, compileBuilder) {
   });
 };
 
+// Loop over build relative builders. Match the patterns to the files that the
+// other edges produce.
 var compilePostBuilders = function(params) {
   var postOutputs = [];
   params.postBuilders.forEach(function(post) {
@@ -200,6 +215,7 @@ var compilePostBuilders = function(params) {
   params.outputs = params.outputs.concat(postOutputs);
 };
 
+// Generates eges for file
 var compileSingle = function(ninja, single, files, srcPath) {
   var outputs = [];
   files.forEach(function(file) {
@@ -222,6 +238,7 @@ var compileSingle = function(ninja, single, files, srcPath) {
   return outputs;
 };
 
+// generates an edge for all files
 var compileBundle = function(ninja, bundle, files, srcPath) {
   if (!bundle.buildRelative) {
     files = _.map(files, function(file) {
@@ -241,7 +258,8 @@ var compileBundle = function(ninja, bundle, files, srcPath) {
   return bundle.targets;
 };
 
-var compileGlobLists = function(ninja, filename, patternMap, path) {
+// Generate file list edge that watches path 'path' and generates file 'filename'
+var generateGlobLists = function(ninja, filename, patternMap, path) {
   var patternList = Object.keys(patternMap);
 
   if (patternList.length > 0) {
@@ -258,6 +276,7 @@ var compileGlobLists = function(ninja, filename, patternMap, path) {
   return false;
 };
 
+// Main generate function
 var generate = function(srcPath) {
   srcPath = srcPath || '.';
   srcPath = path.join(srcPath);
@@ -272,7 +291,7 @@ var generate = function(srcPath) {
       singles = [],
       bundles = [];
 
-  var listBuild = function(list, Type) {
+  var builderFactory = function(list, Type) {
     return function(arg) {
       var obj = new Type(arg);
       list.push(obj);
@@ -292,9 +311,9 @@ var generate = function(srcPath) {
     setInterval: undefined,
     clearInterval: undefined,
 
-    rule: listBuild(rules, RuleBuilder),
-    single: listBuild(singles, SingleBuilder),
-    bundle: listBuild(bundles, BundleBuilder)
+    rule: builderFactory(rules, RuleBuilder),
+    single: builderFactory(singles, SingleBuilder),
+    bundle: builderFactory(bundles, BundleBuilder)
   };
 
   // evaluate the config script
@@ -313,25 +332,30 @@ var generate = function(srcPath) {
   compileEdges(singles, params, compileSingle);
   compileEdges(bundles, params, compileBundle);
 
+  // generate edges that rely on outputs of other edges
   compilePostBuilders(params);
+
+
+  /************************************************
+   * Util edges
+   */
 
   ninja.edge('.dirty');
 
-  var srcFileList = '.src_files',
-      buildFileList = '.build_files';
+  var srcFileList = '.src_files';
 
-  compileGlobLists(ninja, srcFileList, params.srcPatterns, srcPath);
+  // generate glob watcher for patterns in the soruce dir
+  generateGlobLists(ninja, srcFileList, params.srcPatterns, srcPath);
 
-  var rebuildDeps = [assetConfigPath, srcFileList];
-
+  // ninja generator command
   ninja.edge('build.ninja')
-    .from(rebuildDeps)
+    .from([assetConfigPath, srcFileList])
     .using('GENERATE');
 
+  // helper edge for ninja clean instead of ninja -t clean
   ninja.edge('clean').using('CLEAN');
 
   ninja.byDefault(params.outputs.join(' '));
-
   ninja.save('build.ninja');
 };
 
