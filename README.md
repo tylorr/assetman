@@ -104,8 +104,11 @@ convert ../raw_assets/sprites/character.psd[0] sprites/character.png
 convert ../raw_assets/sprites/bullet.psd[0] sprites/bullet.png
 ```
 
-To match all of the `.psd` files in the source directory you could use the
-pattern `**/*.psd`.
+The `build.ninja` file that `assetman` produces is able to recoginze file additions
+and deletions in the source directory and re-generates itself, so there is no
+need to run `asssetman` again.
+
+*Note: To match all of the `.psd` files in the source directory you could use the pattern `**/*.psd`.*
 
 ### Bundles
 
