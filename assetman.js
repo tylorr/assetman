@@ -55,48 +55,6 @@ help = function() {
   process.exit();
 };
 
-
-// // Parse agv for arguments, recurse for sub-commands
-// parse = function(settings, argv) {
-//   var commands = settings.commands,
-//       len = argv.length,
-//       arg, i;
-
-//   // parse first command found, ignore the rest
-//   if (commands) {
-//     for (i = 0; i < len; i++) {
-//       arg = argv[i];
-
-//       if (commands[arg]) {
-
-//         // pass arguments to sub-command
-//         argv.splice(i, 1);
-//         return parse(commands[arg], argv);
-//       }
-//     }
-//   }
-
-//   // If a command was not found and an action exist, call it.
-//   if (settings.action) {
-//     settings.action.apply(this, argv);
-//   } else {
-//     // No action for this command, this is an error, show help
-//     showHelp();
-//     process.exit(1);
-//   }
-// };
-
-// var getConfig = function(absSrcPath) {
-//   var configPath = path.join(absSrcPath, 'assets.json');
-
-//   if (fs.existsSync(configPath)) {
-//     return require(configPath);
-//   } else {
-//     console.error('ERROR: The source directory "' + srcPath + '" does not appear to contain assets.json.');
-//     process.exit(1);
-//   }
-// };
-
 var RuleBuilder = (function() {
   function RuleBuilder(name) {
     this.name = name;
@@ -175,10 +133,10 @@ var BundleBuilder = (function() {
   return BundleBuilder;
 })();
 
-var setupUtils = function(ninja, srcPath) {
+var setupUtilRules = function(ninja, srcPath) {
   // Setup rule for building file list file
   var compareEchoPath = path.join(__dirname, 'compare_echo.js'),
-      command = 'node ' + compareEchoPath + ' "$glob" $out ' + srcPath;
+      command = 'node ' + compareEchoPath + ' "$glob" $out $path';
   ninja.rule('COMPARE_ECHO')
     .restat(true)
     .description('Updating file list...')
@@ -209,50 +167,83 @@ var compileRules = function(ninja, rules) {
   });
 };
 
-var compileSingles = function(ninja, singles, srcPath) {
-  singles.forEach(function(single) {
-    var filepath  = single.buildRelative ? '.' : srcPath,
-        cache = single.buildRelative ? buildCache : srcCache,
-        files = glob.sync(single.pattern, {cwd: filepath, cache: cache});
+var compileEdges = function(edgeBuilders, params, compileBuilder) {
+  edgeBuilders.forEach(function(edgeBuilder) {
+    var cache, files, filepath;
 
-    files.forEach(function(file) {
+    if (edgeBuilder.buildRelative) {
+      filepath = '.';
+      cache = buildCache;
+      params.buildPatterns[edgeBuilder.pattern] = true;
+    } else {
+      filepath = params.srcPath;
+      cache = srcCache;
+      params.srcPatterns[edgeBuilder.pattern] = true;
+    }
 
-      // convert OS specific
-      file = path.join(file);
+    files = glob.sync(edgeBuilder.pattern, {cwd: filepath, cache: cache});
 
-      var inputPath = path.join(filepath, file),
-          filename = path.basename(file, path.extname(file)),
-          outName = single.target.replace('$filename', filename),
-          outputPath = path.join(path.dirname(file), outName);
-
-      var edge = ninja.edge(outputPath)
-      edge.from(inputPath).using(single.rule);
-      edgeAssign(edge, single.assignments);
-    });
+    var outputs = compileBuilder(params.ninja, edgeBuilder, files, filepath);
+    params.outputs = params.outputs.concat(outputs);
   });
 };
 
-var compileBundles = function(ninja, bundles, srcPath) {
-  bundles.forEach(function(bundle) {
-    var filepath = bundle.buildRelative ? '.' : srcPath,
-        cache = bundle.buildRelative ? buildCache : srcCache,
-        files = glob.sync(bundle.pattern, {cwd: filepath, cache: cache});
+var compileSingle = function(ninja, single, files, srcPath) {
+  var outputs = [];
+  files.forEach(function(file) {
 
-    if (!bundle.buildRelative) {
-      files = _.map(files, function(file) {
-        return path.join(srcPath, file);
-      });
-    }
+    // convert OS specific
+    file = path.join(file);
 
-    if (bundle.targets.length == 0) {
-      console.warn('WARN: No targets specified for bundle clause with pattern: ' + bundle.pattern);
-      return;
-    }
+    var inputPath = path.join(srcPath, file),
+        filename = path.basename(file, path.extname(file)),
+        outName = single.target.replace('$filename', filename),
+        outputPath = path.join(path.dirname(file), outName);
 
-    var edge = ninja.edge(bundle.targets);
-    edge.from(files).using(bundle.rule);
-    edgeAssign(edge, bundle.assignments);
+    var edge = ninja.edge(outputPath)
+    edge.from(inputPath).using(single.rule);
+    edgeAssign(edge, single.assignments);
+
+    outputs.push(outputPath);
   });
+
+  return outputs;
+};
+
+var compileBundle = function(ninja, bundle, files, srcPath) {
+  if (!bundle.buildRelative) {
+    files = _.map(files, function(file) {
+      return path.join(srcPath, file);
+    });
+  }
+
+  if (bundle.targets.length == 0) {
+    console.warn('WARN: No targets specified for bundle clause with pattern: ' + bundle.pattern);
+    return;
+  }
+
+  var edge = ninja.edge(bundle.targets);
+  edge.from(files).using(bundle.rule);
+  edgeAssign(edge, bundle.assignments);
+
+  return bundle.targets;
+};
+
+var compileGlobLists = function(ninja, filename, patternMap, path) {
+  var patternList = Object.keys(patternMap);
+
+  if (patternList.length > 0) {
+    var globs = patternList.join(' ');
+    ninja.edge(filename)
+      .from('.dirty')
+      .assign('glob', globs)
+      .assign('path', path)
+      .using('COMPARE_ECHO');
+
+    return true;
+  }
+
+  return false;
 };
 
 var generate = function(srcPath) {
@@ -263,7 +254,7 @@ var generate = function(srcPath) {
       assetConfigPath = path.join(srcPath, 'assets.js'),
       assetConfigStr = fs.readFileSync(assetConfigPath, {encoding:'utf8'});
 
-  setupUtils(ninja, srcPath);
+  setupUtilRules(ninja, srcPath);
 
   var rules = [],
       singles = [],
@@ -294,72 +285,51 @@ var generate = function(srcPath) {
     bundle: listBuild(bundles, BundleBuilder)
   };
 
+  // evaluate the config script
   (new Function('with(this) {' + assetConfigStr + '}')).apply(mask);
 
+  // stores lists of patterns to check
+  var params = {
+    ninja: ninja,
+    srcPath: srcPath,
+    srcPatterns: {},
+    buildPatterns: {},
+    outputs: []
+  };
+
   compileRules(ninja, rules);
-  compileSingles(ninja, singles, srcPath);
-  compileBundles(ninja, bundles, srcPath);
+  compileEdges(singles, params, compileSingle);
+  compileEdges(bundles, params, compileBundle);
+
+  ninja.edge('.dirty');
+
+  var srcFileList = '.src_files',
+      buildFileList = '.build_files';
+
+  var srcDep = compileGlobLists(ninja, srcFileList, params.srcPatterns, srcPath);
+  var buildDep = compileGlobLists(ninja, buildFileList, params.buildPatterns, '.');
+
+  var rebuildDeps = [assetConfigPath];
+
+  if (srcDep) {
+    rebuildDeps.push(srcFileList);
+  }
+
+  if (buildDep) {
+    rebuildDeps.push(buildFileList);
+  }
+
+  ninja.edge('build.ninja')
+    .from(rebuildDeps)
+    .using('GENERATE');
+
+  ninja.edge('clean').using('CLEAN');
+
+  ninja.byDefault(params.outputs.join(' '));
 
   ninja.save('build.ninja');
-
-
-  // // Generate rules from assets.json
-  // for (var rule in assetConfig.rules) {
-  //   ninja.rule(rule).run(assetConfig.rules[rule]);
-  // }
-
-  // var outputs = [];
-  // for (var pattern in assetConfig.edges) {
-
-  //   // find files that match each pattern
-  //   var files = glob.sync(pattern, {cwd: srcPath});
-
-  //   // create build edge for each file found
-  //   files.forEach(function(file) {
-
-  //     // use path.join to convert path seperator to OS specific
-  //     file = path.join(file);
-
-  //     var inputPath = path.join(srcPath, file),
-  //         ext = path.extname(file),
-  //         noExt = file.replace(new RegExp(ext + '$'), '');
-
-  //     // Create edge from each output postfix
-  //     var outputRules = assetConfig.edges[pattern];
-  //     for (var postfix in outputRules) {
-  //       var rule = outputRules[postfix];
-  //       var outputPath = noExt + postfix;
-
-  //       ninja.edge(outputPath).from(inputPath).using(rule);
-
-  //       // collect outputs
-  //       outputs.push(outputPath);
-  //     }
-  //   });
-  // }
-
-  // // Setup edge for building file list
-  // var globs = Object.keys(assetConfig.edges).join(' ');
-  // ninja.edge('.dirty');
-  // ninja.edge('.files').from('.dirty').using('COMPARE_ECHO').assign('glob', globs);
-
-  // // Setup edge for building build.ninja
-  // var assetConfigPath = path.join(srcPath, 'assets.json');
-  // ninja.edge('build.ninja').from(['.files', assetConfigPath]).using('GENERATE');
-
-  // ninja.edge('clean').using('CLEAN');
-
-  // // Setup defaults
-  // ninja.byDefault(outputs.join(' '));
-
-  // ninja.save('build.ninja');
 };
-
-// var commandSettings = {
-//   action: generate
-// };
 
 var argv = process.argv.slice(2);
 checkHelp(argv);
-// parse(commandSettings, argv);
 generate.apply(this, argv);
