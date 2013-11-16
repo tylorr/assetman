@@ -145,6 +145,7 @@ var setupUtilRules = function(ninja, srcPath) {
       command = 'node ' + compareEchoPath + ' "$glob" $out $path';
   ninja.rule('COMPARE_ECHO')
     .restat(true)
+    .generator(true)
     .description('Updating file list...')
     .run(command);
 
@@ -153,10 +154,6 @@ var setupUtilRules = function(ninja, srcPath) {
     .generator(true)
     .description('Re-running assetman...')
     .run('assetman.cmd ' + srcPath);
-
-  ninja.rule('CLEAN')
-    .run('ninja -t clean')
-    .description('Cleaning built files...');
 };
 
 // Loop through assign object keys and values and
@@ -208,6 +205,12 @@ var compilePostBuilders = function(params) {
     var files = _.filter(params.outputs, function(output) {
       return minimatch(output, post.builder.pattern);
     });
+
+    // do no create edge if there are no input files
+    if (files.length == 0) {
+      return;
+    }
+
     var outputs = post.compiler(params.ninja, post.builder, files, '.');
     postOutputs = postOutputs.concat(outputs);
   });
@@ -351,9 +354,6 @@ var generate = function(srcPath) {
   ninja.edge('build.ninja')
     .from([assetConfigPath, srcFileList])
     .using('GENERATE');
-
-  // helper edge for ninja clean instead of ninja -t clean
-  ninja.edge('clean').using('CLEAN');
 
   ninja.byDefault(params.outputs.join(' '));
   ninja.save('build.ninja');
