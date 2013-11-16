@@ -1,7 +1,11 @@
 # assetman
 
-Generates build.ninja files that supports file glob patterns and will recognize
-file additions and deletions.
+Assetman is a build configure tool similar to CMake, but only works with Ninja
+by generating `build.ninja` files. Assetman has a focus on buiding/converting
+assets such as images and audio, and adds wildcard/glob pattern features to 
+support workflows related to asset production. Assetman is able to prodcue
+`build.ninja` files that re-generate themselves when files are added or removed
+from the source directory, something that CMake does not support.
 
 ## Getting Started
 
@@ -106,7 +110,6 @@ pattern `**/*.psd`.
 ### Bundles
 
 Coming soon.
-
 
 ## License
 Copyright (c) 2013 Tylor Reynolds
