@@ -63,6 +63,23 @@ and lets you specify an extension/suffix:
 single('background.psd').toExt('.png').using('convert');
 ```
 
+### Configure and build
+
+Now in the build directory, in our case the `assets` folder, run the followig
+command:
+
+```
+assetman ../raw_assets
+```
+
+This tells `assetman` to run the `assets.js` configure script found in the 
+`raw_assets` folder and generate a `build.ninja` file in the current directory.
+This file is used by the Ninja build system; running `ninja` in the `assets`
+folder will execute the final build step producing `background.png`.
+
+You only have to run the `assetman` command once. Ninja will be able to detect
+any changes to the `assets.js` file, and re-generate itself.
+
 ### Patterns
 
 Sometimes you may want to use the same rule to convert/build all files that
