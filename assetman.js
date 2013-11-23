@@ -280,8 +280,11 @@ var generateGlobLists = function(ninja, filename, patternMap, path) {
 
 // Main generate function
 var generate = function(srcPath) {
-  srcPath = srcPath || '.';
-  srcPath = path.join(srcPath);
+  if (srcPath && srcPath !== '.') {
+    srcPath = path.relative(process.cwd(), srcPath);
+  } else {
+    srcPath = '.';
+  }
 
   var ninja = ninjaGen(),
       assetConfigPath = path.join(srcPath, 'assets.js'),

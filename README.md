@@ -166,8 +166,6 @@ The resulting command would look something like this:
 binpack sprites/character.png sprites/bullet.png -o atlas
 ```
 
-## API
-
 ## License
 Copyright (c) 2013 Tylor Reynolds
 Licensed under the MIT license.
